@@ -494,7 +494,7 @@ static uint64_t upd_price( SolParameters *prm, SolAccountInfo *ka )
   }
 
   // Check that this price update is valid
-  if !is_valid_price_update(cptr, &ka[0], &ka[1]) {
+  if !is_valid_price_upd(cptr, &ka[0], &ka[1]) {
     return ERROR_INVALID_ARGUMENT;
   }
 
@@ -514,7 +514,7 @@ static uint64_t upd_price( SolParameters *prm, SolAccountInfo *ka )
   return SUCCESS;
 }
 
-static bool is_valid_price_update( SolParameters *prm, cmd_upd_price_t *cptr, SolAccountInfo *publish_account, SolAccountInfo *price_account )
+static bool is_valid_price_upd( SolParameters *prm, cmd_upd_price_t *cptr, SolAccountInfo *publish_account, SolAccountInfo *price_account )
 {
 
   // Verify that the price account is writable, has the correct ownership and is 
