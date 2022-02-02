@@ -516,7 +516,7 @@ static uint64_t upd_price( SolParameters *prm, SolAccountInfo *ka )
   return SUCCESS;
 }
 
-static bool is_valid_price_update(cmd_upd_price_t *cptr, SolAccountInfo *publish_account, SolAccountInfo *price_account)
+static bool is_valid_price_update( cmd_upd_price_t *cptr, SolAccountInfo *publish_account, SolAccountInfo *price_account )
 {
 
   // Verify that symbol account is initialized and corresponds to the
