@@ -494,7 +494,7 @@ static uint64_t upd_price( SolParameters *prm, SolAccountInfo *ka )
   }
 
   // Check that this price update is valid
-  if !is_valid_price_upd(cptr, &ka[0], &ka[1]) {
+  if !is_valid_price_upd( cptr, &ka[0], &ka[1] ) {
     return ERROR_INVALID_ARGUMENT;
   }
 
