@@ -506,7 +506,7 @@ static uint64_t upd_price( SolParameters *prm, SolAccountInfo *ka )
   do_price_upd( cptr, clock_account, price_account, comp_idx );
 
   return SUCCESS;
-  }
+}
 
 static int find_comp_idx( SolAccountInfo *publish_account, SolAccountInfo *price_account ) uint32_t {
   pc_price_t *pptr = (pc_price_t*)price_account.data;
