@@ -515,8 +515,8 @@ static int find_comp_idx( SolAccountInfo *publish_account, SolAccountInfo *price
     pc_price_comp_t *iptr = &pptr->comp_[i];
     if ( pc_pub_key_equal( kptr, &iptr->pub_ ) ) {
       break;
+    }
   }
-}
 
   return i;
 }
