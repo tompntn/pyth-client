@@ -475,6 +475,65 @@ static uint64_t upd_test( SolParameters *prm, SolAccountInfo *ka )
   return SUCCESS;
 }
 
+static uint64_t batch_upd_price( SolParameters *prm, SolAccountInfo *ka ) {
+
+  // Check that header information has been provided
+  if ( prm->data_len < sizeof( cmd_batch_upd_price_header_t ) ) {
+    return ERROR_INVALID_ARGUMENT;
+  }
+  cmd_batch_upd_price_header_t *hptr = (cmd_batch_upd_price_header_t *)prm->data;
+
+  // Check that the correct number of updates have been provided
+  if ( prm->data_len != sizeof( cmd_batch_upd_price_header_t ) + ( hptr->count_ * sizeof( cmd_upd_price_t ) ) ) {
+    return ERROR_INVALID_ARGUMENT;
+  }
+  cmd_batch_upd_price_t *cptr = (cmd_batch_upd_price_t *)prm->data;
+
+  // Check that the correct number of account keys have been provided
+  // We expect:
+  // - funding/publisher account
+  // - sysvar_clock account
+  // - price accounts
+  if ( prm->ka_num != ( 2 + hptr->count_ ) ) {
+    return ERROR_INVALID_ARGUMENT;
+  }
+
+  SolAccountInfo *publish_account = &ka[0];
+  SolAccountInfo *clock_account = &ka[1];
+
+  // Validate that the publish accounts and the clock accounts are valid
+  if ( !valid_funding_account( publish_account ) ||
+       !pc_pub_key_equal( (pc_pub_key_t*)clock_account.key, (pc_pub_key_t*)sysvar_clock ) ) {
+    return ERROR_INVALID_ARGUMENT;
+  }
+
+  // Loop over all the given updates. If any fail, don't fail the transaction but
+  // instead try the next one.
+  // TODO: fail transaction if all fail
+  bool any_succeeded = false;
+  for ( int i = 0; i < hptr->count_; i++ ) {
+    cmd_upd_price_t *upd = (cmd_upd_price_t*)cptr->upds_[i];
+    SolAccountInfo *price_account = &ka[2 + i];
+
+    // Check that this price update is valid
+    uint32_t comp_idx = find_comp_idx( publish_account, price_account );
+    if !is_valid_price_upd( prm, cptr, publish_account, price_account, comp_idx ) {
+      continue;
+    }
+
+    // Update aggregate price as necessary
+    do_price_upd( cptr, clock_account, price_account, comp_idx );
+
+    any_succeeded = true;
+  }
+
+  // Fail the transaction if no updates succeeded
+  if ( !any_succeeded && hptr->count_ > 0 ) {
+    return ERROR_INVALID_ARGUMENT;
+  }
+  return SUCCESS;
+}
+
 static uint64_t upd_price( SolParameters *prm, SolAccountInfo *ka )
 {
   // Validate command parameters
@@ -585,19 +644,20 @@ static uint64_t dispatch( SolParameters *prm, SolAccountInfo *ka )
   }
   switch(hdr->cmd_) {
     case e_cmd_upd_price:
-    case e_cmd_agg_price:     return upd_price( prm, ka );
-    case e_cmd_init_mapping:  return init_mapping( prm, ka );
-    case e_cmd_add_mapping:   return add_mapping( prm, ka );
-    case e_cmd_add_product:   return add_product( prm, ka );
-    case e_cmd_upd_product:   return upd_product( prm, ka );
-    case e_cmd_add_price:     return add_price( prm, ka );
-    case e_cmd_add_publisher: return add_publisher( prm, ka );
-    case e_cmd_del_publisher: return del_publisher( prm, ka );
-    case e_cmd_init_price:    return init_price( prm, ka );
-    case e_cmd_init_test:     return init_test( prm, ka );
-    case e_cmd_upd_test:      return upd_test( prm, ka );
-    case e_cmd_set_min_pub:   return set_min_pub( prm, ka );
-    default:                  return ERROR_INVALID_ARGUMENT;
+    case e_cmd_agg_price:      return upd_price( prm, ka );
+    case e_cmd_bulk_udp_price: return bulk_upd_price( prm, ka );
+    case e_cmd_init_mapping:   return init_mapping( prm, ka );
+    case e_cmd_add_mapping:    return add_mapping( prm, ka );
+    case e_cmd_add_product:    return add_product( prm, ka );
+    case e_cmd_upd_product:    return upd_product( prm, ka );
+    case e_cmd_add_price:      return add_price( prm, ka );
+    case e_cmd_add_publisher:  return add_publisher( prm, ka );
+    case e_cmd_del_publisher:  return del_publisher( prm, ka );
+    case e_cmd_init_price:     return init_price( prm, ka );
+    case e_cmd_init_test:      return init_test( prm, ka );
+    case e_cmd_upd_test:       return upd_test( prm, ka );
+    case e_cmd_set_min_pub:    return set_min_pub( prm, ka );
+    default:                   return ERROR_INVALID_ARGUMENT;
   }
 }
 

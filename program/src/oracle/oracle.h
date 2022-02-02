@@ -221,6 +221,12 @@ typedef enum {
   // key[2] sysvar_clock account  [readable]
   e_cmd_upd_price,
 
+  // bulk publish component price. this will involve multiple instruction updates.
+  // key[0]   funding account       [signer writable]
+  // key[1]   sysvar_clock account  [readable]
+  // key[2..] price accounts        [writable]
+  e_cmd_bulk_udp_price,
+
   // compute aggregate price
   // key[0] funding account       [signer writable]
   // key[1] price account         [writable]
@@ -320,6 +326,19 @@ typedef struct cmd_del_publisher
 } cmd_del_publisher_t;
 
 static_assert( sizeof( cmd_del_publisher_t ) == 40, "" );
+
+typedef struct cmd_batch_upd_price
+{
+  cmd_batch_upd_price_header_t header_;
+  cmd_upd_price_t *upds_;
+} cmd_batch_upd_price_t;
+
+typedef struct cmd_batch_upd_price_header
+{
+  uint32_t ver_;
+  int32_t cmd_;
+  int64_t count_; 
+} cmd_batch_upd_price_header_t;
 
 typedef struct cmd_upd_price
 {
