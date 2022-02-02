@@ -485,36 +485,44 @@ static uint64_t upd_price( SolParameters *prm, SolAccountInfo *ka )
 
   // Account (1) is the price account
   // Account (2) is the sysvar_clock account
+  SolAccountInfo *publish_account = &ka[0];
+  SolAccountInfo *price_account = &ka[1];
+  SolAccountInfo *clock_account = &ka[2];
+
   uint32_t clock_idx = prm->ka_num == 3 ? 2 : 3;
   if ( (prm->ka_num != 3 && prm->ka_num != 4) ||
-       !valid_funding_account( &ka[0] ) ||
-       !pc_pub_key_equal( (pc_pub_key_t*)ka[clock_idx].key,
+       !valid_funding_account( publish_account ) ||
+       !pc_pub_key_equal( (pc_pub_key_t*)clock_account.key,
                           (pc_pub_key_t*)sysvar_clock ) ) {
     return ERROR_INVALID_ARGUMENT;
   }
 
   // Check that this price update is valid
-  if !is_valid_price_upd( prm, cptr, &ka[0], &ka[1] ) {
+  uint32_t comp_idx = find_comp_idx( publish_account, price_account );
+  if !is_valid_price_upd( prm, cptr, publish_account, price_account, comp_idx ) {
     return ERROR_INVALID_ARGUMENT;
   }
 
   // update aggregate price as necessary
-  sysvar_clock_t *sptr = (sysvar_clock_t*)ka[clock_idx].data;
-  if ( sptr->slot_ > pptr->agg_.pub_slot_ ) {
-    upd_aggregate( pptr, sptr->slot_ );
+  return SUCCESS;
   }
 
-  // update component price if required
-  if ( cptr->cmd_ == e_cmd_upd_price ) {
-    fptr->price_    = cptr->price_;
-    fptr->conf_     = cptr->conf_;
-    fptr->status_   = cptr->status_;
-    fptr->pub_slot_ = cptr->pub_slot_;
+static int find_comp_idx( SolAccountInfo *publish_account, SolAccountInfo *price_account ) uint32_t {
+  pc_price_t *pptr = (pc_price_t*)price_account.data;
+
+  uint32_t i = 0;
+  pc_pub_key_t *kptr = (pc_pub_key_t*)publish_account.key;
+  for( i=0; i < pptr->num_; ++i ) {
+    pc_price_comp_t *iptr = &pptr->comp_[i];
+    if ( pc_pub_key_equal( kptr, &iptr->pub_ ) ) {
+      break;
   }
-  return SUCCESS;
 }
 
-static bool is_valid_price_upd( SolParameters *prm, cmd_upd_price_t *cptr, SolAccountInfo *publish_account, SolAccountInfo *price_account )
+  return i;
+}
+
+static bool is_valid_price_upd( SolParameters *prm, cmd_upd_price_t *cptr, SolAccountInfo *publish_account, SolAccountInfo *price_account, comp_idx uint32_t )
 {
 
   // Verify that the price account is writable, has the correct ownership and is 
@@ -532,16 +540,8 @@ static bool is_valid_price_upd( SolParameters *prm, cmd_upd_price_t *cptr, SolAc
     return false;
   }
 
-  // Verify that publisher is valid
-  uint32_t i = 0;
-  pc_pub_key_t *kptr = (pc_pub_key_t*)publish_account.key;
-  for( i=0; i != pptr->num_; ++i ) {
-    pc_price_comp_t *iptr = &pptr->comp_[i];
-    if ( pc_pub_key_equal( kptr, &iptr->pub_ ) ) {
-      break;
-    }
-  }
-  if ( i == pptr->num_ ) {
+  // Verify that the price component index is valid
+  if ( comp_idx >= pptr->num_ ) {
     return false;
   }
 
