@@ -938,11 +938,21 @@ bool rpc::upd_price::build_tx(
     return false;
   }
 
-  // signatures section
-  tx.add_len< 1 >(); // one signature (publish)
-  size_t pub_idx = tx.reserve_sign();
+  /*
+  Transaction format:
+  - compact-array of signatures
+  - message
+  */
 
-  // message header
+  // signatures section:
+  // - number of required signatures in the containing transaction
+  tx.add_len< 1 >(); // one signature (publish)
+  size_t pub_idx = tx.reserve_sign(); // reserve enough space for the signature
+
+  // message header. contains 3 unsigned 8-bit values:
+  // - number of required signatures in the containing transaction
+  // - number of those corresponding account addresses that are read-only
+  // - number of read-only account addresses not requiring signatures
   size_t tx_idx = tx.get_pos();
   tx.add( (uint8_t)1 ); // pub is only signing account
   tx.add( (uint8_t)0 ); // read-only signed accounts
@@ -952,6 +962,7 @@ bool rpc::upd_price::build_tx(
   auto& first = *upds[ 0 ];
 
   // accounts
+  // compact-array of account addresses
   tx.add_len( n + 3 ); // n + 3 accounts: publish, symbol{n}, sysvar, program
   tx.add( *first.pkey_ ); // publish account
   for ( unsigned i = 0; i < n; ++i ) {
@@ -964,17 +975,23 @@ bool rpc::upd_price::build_tx(
   tx.add( *first.bhash_ ); // recent block hash
 
   // instructions section
+  // Each instruction:
+  // - program ID index: the on-chain program that can interpret the opaque data
   tx.add_len( n ); // n instruction(s)
   for ( unsigned i = 0; i < n; ++i ) {
+    // program_id index
     tx.add( (uint8_t)( n + 2 ) ); // program_id index
+    // accounts which this instruction will access
     tx.add_len< 3 >(); // 3 accounts: publish, symbol, sysvar
     tx.add( (uint8_t)0 ); // index of publish account
     tx.add( (uint8_t)( i + 1 ) ); // index of symbol account
     tx.add( (uint8_t)( n + 1 ) ); // index of sysvar account
-
+    
     auto const& upd = *upds[ i ];
 
-    // instruction parameter section
+    // instruction data byte array
+
+    // our internal custom PC protocol
     tx.add_len<sizeof(cmd_upd_price)>();
     tx.add( (uint32_t)PC_VERSION );
     tx.add( (int32_t)( upd.cmd_ ) );
@@ -1005,6 +1022,7 @@ void rpc::upd_price::request( json_wtr& msg )
   request( msg, upds, 1 );
 }
 
+// TODO: what about inside pyth_tx?
 bool rpc::upd_price::build(
   net_wtr& wtr, upd_price* upds[], const unsigned n
 )
