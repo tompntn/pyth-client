@@ -485,11 +485,9 @@ static uint64_t upd_price( SolParameters *prm, SolAccountInfo *ka )
 
   // Account (1) is the price account
   // Account (2) is the sysvar_clock account
-  // Verify that this is signed, writable with correct ownership and size
   uint32_t clock_idx = prm->ka_num == 3 ? 2 : 3;
   if ( (prm->ka_num != 3 && prm->ka_num != 4) ||
        !valid_funding_account( &ka[0] ) ||
-       !valid_writable_account( prm, &ka[1], sizeof( pc_price_t ) ) ||
        !pc_pub_key_equal( (pc_pub_key_t*)ka[clock_idx].key,
                           (pc_pub_key_t*)sysvar_clock ) ) {
     return ERROR_INVALID_ARGUMENT;
@@ -516,8 +514,14 @@ static uint64_t upd_price( SolParameters *prm, SolAccountInfo *ka )
   return SUCCESS;
 }
 
-static bool is_valid_price_update( cmd_upd_price_t *cptr, SolAccountInfo *publish_account, SolAccountInfo *price_account )
+static bool is_valid_price_update( SolParameters *prm, cmd_upd_price_t *cptr, SolAccountInfo *publish_account, SolAccountInfo *price_account )
 {
+
+  // Verify that the price account is writable, has the correct ownership and is 
+  // of the correct size.
+  if ( !valid_writable_account( prm, price_account, sizeof( pc_price_t ) ) ) {
+    return false;
+  }
 
   // Verify that symbol account is initialized and corresponds to the
   // same symbol in the instruction parameters
