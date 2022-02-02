@@ -483,12 +483,11 @@ static uint64_t upd_price( SolParameters *prm, SolAccountInfo *ka )
     return ERROR_INVALID_ARGUMENT;
   }
 
-  // Account (1) is the price account
-  // Account (2) is the sysvar_clock account
   SolAccountInfo *publish_account = &ka[0];
   SolAccountInfo *price_account = &ka[1];
   SolAccountInfo *clock_account = &ka[2];
 
+  // Validate that the publish accounts and the clock accounts are valid
   uint32_t clock_idx = prm->ka_num == 3 ? 2 : 3;
   if ( (prm->ka_num != 3 && prm->ka_num != 4) ||
        !valid_funding_account( publish_account ) ||
