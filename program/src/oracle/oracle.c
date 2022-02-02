@@ -495,37 +495,13 @@ static uint64_t upd_price( SolParameters *prm, SolAccountInfo *ka )
     return ERROR_INVALID_ARGUMENT;
   }
 
-  // Verify that symbol account is initialized and corresponds to the
-  // same symbol in the instruction parameters
-  pc_price_t *pptr = (pc_price_t*)ka[1].data;
-  if ( pptr->magic_ != PC_MAGIC ||
-       pptr->ver_ != cptr->ver_ ||
-       pptr->type_ != PC_ACCTYPE_PRICE ) {
-    return ERROR_INVALID_ARGUMENT;
-  }
-
-  // verify that publisher is valid
-  uint32_t i = 0;
-  pc_pub_key_t *kptr = (pc_pub_key_t*)ka[0].key;
-  for( i=0; i != pptr->num_; ++i ) {
-    pc_price_comp_t *iptr = &pptr->comp_[i];
-    if ( pc_pub_key_equal( kptr, &iptr->pub_ ) ) {
-      break;
-    }
-  }
-  if ( i == pptr->num_ ) {
-    return ERROR_INVALID_ARGUMENT;
-  }
-
-  // reject if this price corresponds to the same or earlier time
-  pc_price_info_t *fptr = &pptr->comp_[i].latest_;
-  sysvar_clock_t *sptr = (sysvar_clock_t*)ka[clock_idx].data;
-  if ( cptr->cmd_ == e_cmd_upd_price &&
-       cptr->pub_slot_ <= fptr->pub_slot_ ) {
+  // Check that this price update is valid
+  if !is_valid_price_update(cptr, ka[0], ka[1]) {
     return ERROR_INVALID_ARGUMENT;
   }
 
   // update aggregate price as necessary
+  sysvar_clock_t *sptr = (sysvar_clock_t*)ka[clock_idx].data;
   if ( sptr->slot_ > pptr->agg_.pub_slot_ ) {
     upd_aggregate( pptr, sptr->slot_ );
   }
@@ -538,6 +514,41 @@ static uint64_t upd_price( SolParameters *prm, SolAccountInfo *ka )
     fptr->pub_slot_ = cptr->pub_slot_;
   }
   return SUCCESS;
+}
+
+static bool is_valid_price_update(cmd_upd_price_t *cptr, SolAccountInfo *publish_account, SolAccountInfo *price_account)
+{
+
+  // Verify that symbol account is initialized and corresponds to the
+  // same symbol in the instruction parameters
+  pc_price_t *pptr = (pc_price_t*)price_account.data;
+  if ( pptr->magic_ != PC_MAGIC ||
+       pptr->ver_ != cptr->ver_ ||
+       pptr->type_ != PC_ACCTYPE_PRICE ) {
+    return false;
+  }
+
+  // Verify that publisher is valid
+  uint32_t i = 0;
+  pc_pub_key_t *kptr = (pc_pub_key_t*)publish_account.key;
+  for( i=0; i != pptr->num_; ++i ) {
+    pc_price_comp_t *iptr = &pptr->comp_[i];
+    if ( pc_pub_key_equal( kptr, &iptr->pub_ ) ) {
+      break;
+    }
+  }
+  if ( i == pptr->num_ ) {
+    return false;
+  }
+
+  // Reject if this price corresponds to the same or earlier time
+  pc_price_info_t *fptr = &pptr->comp_[i].latest_;
+  if ( cptr->cmd_ == e_cmd_upd_price &&
+       cptr->pub_slot_ <= fptr->pub_slot_ ) {
+    return false;
+  }
+
+  return true;
 }
 
 static uint64_t dispatch( SolParameters *prm, SolAccountInfo *ka )
